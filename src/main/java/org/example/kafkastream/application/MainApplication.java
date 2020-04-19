@@ -1,17 +1,14 @@
 package org.example.kafkastream.application;
 
 import com.sun.javaws.IconUtil;
+import kafka.api.PartitionOffsetRequestInfo;
 import kafka.cluster.Broker;
-import kafka.javaapi.PartitionMetadata;
-import kafka.javaapi.TopicMetadata;
-import kafka.javaapi.TopicMetadataRequest;
-import kafka.javaapi.TopicMetadataResponse;
+import kafka.common.TopicAndPartition;
+import kafka.javaapi.*;
 import kafka.javaapi.consumer.SimpleConsumer;
 import org.apache.kafka.common.requests.MetadataResponse;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class MainApplication {
     private List replicaBrokers = new ArrayList();
@@ -38,6 +35,33 @@ public class MainApplication {
     private void run(long maxReads, String topic, int partition, List<String> seeds_brockers, int port) {
         PartitionMetadata metadata = findLeader(seeds_brockers, port, topic, partition);
 
+        if (metadata == null) {
+            System.out.println("Can't find partition for Topic and Partition. Exiting");
+        }
+        if (metadata.leader() == null) {
+            System.out.println("Can't find partition for Topic and Partition. Exiting");
+        }
+        String leadBroker = metadata.leader().host();
+        String clientName = "Client_" + topic + "_" + partition;
+
+        SimpleConsumer consumer= new SimpleConsumer(leadBroker, port, 100000, 64 * 1024, clientName);
+        long readOffset = getLastOffset(consumer, topic, partition, kafka.api.OffsetRequest.EarliestTime(), clientName);
+
+    }
+
+    private long getLastOffset(SimpleConsumer consumer, String topic, int partition, long earliestTime, String clientName) {
+        TopicAndPartition topicAndPartition = new TopicAndPartition(topic, partition);
+        Map requestInfo = new HashMap();
+        requestInfo.put(topicAndPartition, new PartitionOffsetRequestInfo(earliestTime, 1));
+        OffsetRequest request = new OffsetRequest(requestInfo,kafka.api.OffsetRequest.CurrentVersion(), clientName);
+        OffsetResponse response = consumer.getOffsetsBefore(request);
+
+        if (response.hasError()) {
+            System.out.println("Error fetching data offset Data the Broker. Reason: "
+                    + response.errorCode(topic, partition));
+        }
+        long[] offsets = response.offsets(topic, partition);
+        return offsets[0];
     }
 
     private PartitionMetadata findLeader(List<String> seeds_brockers, int port, String topic, int partition) {
