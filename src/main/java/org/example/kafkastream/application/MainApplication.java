@@ -16,6 +16,7 @@ import kafka.javaapi.*;
 import kafka.javaapi.consumer.SimpleConsumer;
 import kafka.message.MessageAndOffset;
 import org.apache.kafka.common.requests.MetadataResponse;
+import org.example.kafkastream.models.News;
 
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
@@ -39,7 +40,7 @@ public class MainApplication {
         }
     }
 
-    public void MongoDBSimpleConsumer() {
+    public void MainApplication() {
         replicaBrokers = new ArrayList();
     }
 
@@ -102,9 +103,24 @@ public class MainApplication {
                 ByteBuffer payload = messageAndOffset.message().payload();
                 byte[] bytes = new byte[payload.limit()];
                 payload.get(bytes);
+                News news = gson.fromJson(new String(bytes, "UTF-8"), type);
+                System.out.println(news);
+
+                cnnCollection.insertOne(news.getNewsAsDocument());
+
+                numRead++;
+                maxReads--;
+            }
+
+            if (numRead == 0) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ie) {
+                    ie.printStackTrace();
+                }
             }
         }
-
+        if (consumer != null) consumer.close();
     }
 
     private String findNewLeader(String oldLeader, String topic, int partition, int port) throws Exception {
