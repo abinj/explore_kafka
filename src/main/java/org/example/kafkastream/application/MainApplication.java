@@ -1,5 +1,10 @@
 package org.example.kafkastream.application;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import com.sun.javaws.IconUtil;
 import kafka.api.FetchRequestBuilder;
 import kafka.api.FetchRequest;
@@ -9,8 +14,11 @@ import kafka.common.ErrorMapping;
 import kafka.common.TopicAndPartition;
 import kafka.javaapi.*;
 import kafka.javaapi.consumer.SimpleConsumer;
+import kafka.message.MessageAndOffset;
 import org.apache.kafka.common.requests.MetadataResponse;
 
+import java.lang.reflect.Type;
+import java.nio.ByteBuffer;
 import java.util.*;
 
 public class MainApplication {
@@ -73,6 +81,27 @@ public class MainApplication {
                 consumer.close();
                 consumer = null;
                 leadBroker = findNewLeader(leadBroker, topic, partition, port);
+                continue;
+            }
+            numErrors = 0;
+            long numRead = 0;
+
+            MongoClient client = new MongoClient();
+            MongoDatabase db = client.getDatabase("News");
+            MongoCollection cnnCollection = db.getCollection("cnn");
+            Gson gson = new Gson();
+            Type type = new TypeToken() {}.getType();
+
+            for (MessageAndOffset messageAndOffset : fetchResponse.messageSet(topic, partition)) {
+                long currentOffset = messageAndOffset.offset();
+                if (currentOffset < readOffset) {
+                    System.out.println("Found an old offset: " + currentOffset + " Expecting: " + readOffset);
+                    continue;
+                }
+                readOffset = messageAndOffset.nextOffset();
+                ByteBuffer payload = messageAndOffset.message().payload();
+                byte[] bytes = new byte[payload.limit()];
+                payload.get(bytes);
             }
         }
 
