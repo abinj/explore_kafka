@@ -1,8 +1,11 @@
 package org.example.kafkastream.application;
 
 import com.sun.javaws.IconUtil;
+import kafka.api.FetchRequestBuilder;
+import kafka.api.FetchRequest;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.cluster.Broker;
+import kafka.common.ErrorMapping;
 import kafka.common.TopicAndPartition;
 import kafka.javaapi.*;
 import kafka.javaapi.consumer.SimpleConsumer;
@@ -32,7 +35,7 @@ public class MainApplication {
         replicaBrokers = new ArrayList();
     }
 
-    private void run(long maxReads, String topic, int partition, List<String> seeds_brockers, int port) {
+    private void run(long maxReads, String topic, int partition, List<String> seeds_brockers, int port) throws Exception {
         PartitionMetadata metadata = findLeader(seeds_brockers, port, topic, partition);
 
         if (metadata == null) {
@@ -47,7 +50,59 @@ public class MainApplication {
         SimpleConsumer consumer= new SimpleConsumer(leadBroker, port, 100000, 64 * 1024, clientName);
         long readOffset = getLastOffset(consumer, topic, partition, kafka.api.OffsetRequest.EarliestTime(), clientName);
 
+        int numErrors = 0;
+        while (maxReads > 0) {
+            if (consumer == null) {
+                consumer = new SimpleConsumer(leadBroker, port, 100000, 64 * 1024, clientName);
+            }
+            FetchRequest req = new FetchRequestBuilder()
+                    .clientId(clientName)
+                    .addFetch(topic, partition, readOffset, 100000)
+                    .build();
+            FetchResponse fetchResponse = consumer.fetch(req);
+            if (fetchResponse.hasError()) {
+                numErrors++;
+                short code = fetchResponse.errorCode(topic, partition);
+                System.out.println("Error fetching data from the Broker: " +leadBroker + " Reason: " + code);
+                if (numErrors > 5) break;
+                if (code == ErrorMapping.OffsetOutOfRangeCode()) {
+                    readOffset = getLastOffset(consumer, topic, partition, kafka.api.OffsetRequest.LatestTime()
+                            , clientName);
+                    continue;
+                }
+                consumer.close();
+                consumer = null;
+                leadBroker = findNewLeader(leadBroker, topic, partition, port);
+            }
+        }
+
     }
+
+    private String findNewLeader(String oldLeader, String topic, int partition, int port) throws Exception {
+        for (int i = 0; i < 3; i++) {
+            boolean goToSleep = false;
+            PartitionMetadata metadata = findLeader(replicaBrokers, port, topic, partition);
+            if (metadata == null) {
+                goToSleep = true;
+            } else if (metadata.leader() == null) {
+                goToSleep = true;
+            } else if (oldLeader.equalsIgnoreCase(metadata.leader().host()) && i == 0) {
+                goToSleep = true;
+            } else {
+                return metadata.leader().host();
+            }
+            if (goToSleep) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        System.out.println("Unable to find new leader after Broker failure. Exiting");
+        throw new Exception("Unable to find new leader after Broker failure. Exiting");
+    }
+
 
     private long getLastOffset(SimpleConsumer consumer, String topic, int partition, long earliestTime, String clientName) {
         TopicAndPartition topicAndPartition = new TopicAndPartition(topic, partition);
