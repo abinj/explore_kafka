@@ -50,7 +50,7 @@ public class MainApplication {
         if (metadata == null) {
             System.out.println("Can't find partition for Topic and Partition. Exiting");
         }
-        if (metadata.leader() == null) {
+        if (metadata != null && metadata.leader() == null) {
             System.out.println("Can't find partition for Topic and Partition. Exiting");
         }
         String leadBroker = metadata.leader().host();
@@ -91,11 +91,12 @@ public class MainApplication {
             MongoDatabase db = client.getDatabase("News");
             MongoCollection cnnCollection = db.getCollection("cnn");
             Gson gson = new Gson();
-            Type type = new TypeToken() {}.getType();
+            Type type = new TypeToken<News>() {}.getType();
 
             for (MessageAndOffset messageAndOffset : fetchResponse.messageSet(topic, partition)) {
                 long currentOffset = messageAndOffset.offset();
                 if (currentOffset < readOffset) {
+                    System.out.println("\n\n\n\n<<<<<<<<<\n\n\n\n\n");
                     System.out.println("Found an old offset: " + currentOffset + " Expecting: " + readOffset);
                     continue;
                 }
