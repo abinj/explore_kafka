@@ -77,6 +77,7 @@ Send Messages to Kafka Producer
 \
 \
 \
-References: https://tecadmin.net/install-apache-kafka-ubuntu/
+References: \
+https://tecadmin.net/install-apache-kafka-ubuntu\
 https://developer.mongodb.com/how-to/data-streaming-kafka-consumer\
 http://ubuntuhandbook.org/index.php/2018/05/install-oracle-java-jdk-8-10-ubuntu-18-04/
