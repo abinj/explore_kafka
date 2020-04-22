@@ -5,7 +5,6 @@ import org.example.kafkastream.pubsub.Subscriber;
 import java.util.*;
 
 public class MainApplication {
-    private List<String> replicaBrokers = new ArrayList();
 
     public static void main(String[] args) {
         MainApplication application = new MainApplication();
@@ -22,17 +21,9 @@ public class MainApplication {
         }
     }
 
-    public void MainApplication() {
-        replicaBrokers = new ArrayList();
-    }
-
     private void run(long maxReads, String topic, int partition, List<String> seeds_brockers
             , int port) throws Exception {
         Subscriber subscriber = new Subscriber();
-        subscriber.initialize(maxReads, topic, partition, seeds_brockers, port, replicaBrokers);
+        subscriber.initialize(maxReads, topic, partition, seeds_brockers, port);
     }
-
-
-
-
 }

@@ -18,16 +18,16 @@ import org.example.kafkastream.models.News;
 
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Subscriber {
+    private List<String> replicaBrokers = new ArrayList();
+
 
     public void initialize(long maxReads, String topic, int partition, List<String> seeds_brockers
-            , int port, List<String> replicaBrokers) throws Exception {
-        PartitionMetadata metadata = findLeader(seeds_brockers, port, topic, partition, replicaBrokers);
+            , int port) throws Exception {
+        replicaBrokers = new ArrayList();
+        PartitionMetadata metadata = findLeader(seeds_brockers, port, topic, partition);
 
         if (metadata == null) {
             System.out.println("Can't find partition for Topic and Partition. Exiting");
@@ -63,7 +63,7 @@ public class Subscriber {
                 }
                 consumer.close();
                 consumer = null;
-                leadBroker = findNewLeader(leadBroker, topic, partition, port, replicaBrokers);
+                leadBroker = findNewLeader(leadBroker, topic, partition, port);
                 continue;
             }
             numErrors = 0;
@@ -106,11 +106,10 @@ public class Subscriber {
         if (consumer != null) consumer.close();
     }
 
-    private String findNewLeader(String oldLeader, String topic, int partition, int port
-            , List<String> replicaBrokers) throws Exception {
+    private String findNewLeader(String oldLeader, String topic, int partition, int port) throws Exception {
         for (int i = 0; i < 3; i++) {
             boolean goToSleep = false;
-            PartitionMetadata metadata = findLeader(replicaBrokers, port, topic, partition, replicaBrokers);
+            PartitionMetadata metadata = findLeader(replicaBrokers, port, topic, partition);
             if (metadata == null) {
                 goToSleep = true;
             } else if (metadata.leader() == null) {
@@ -148,8 +147,7 @@ public class Subscriber {
         return offsets[0];
     }
 
-    private PartitionMetadata findLeader(List<String> seeds_brockers, int port, String topic, int partition
-            , List<String> replicaBrokers) {
+    private PartitionMetadata findLeader(List<String> seeds_brockers, int port, String topic, int partition) {
         PartitionMetadata returnMetaData = null;
         loop:
         for (String seed: seeds_brockers){
